@@ -167,9 +167,10 @@ LEDscanner:
     movia r2, LEDS
     movia r3, 0x200
     ldwio r4, 0(r2)
-    bge r4, r3, if_big
     andi r5, r4, 0x3
     andi r4, r4, 0x3FC
+    bge r4, r3, if_big
+
 
 if_small:
     slli r6, r4, 1
