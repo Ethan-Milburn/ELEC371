@@ -38,6 +38,14 @@
 
 	.equ	LEDS, 0x10000010
 
+# timer addresses
+    .equ	TIMER_STATUS,   0x10002000
+    .equ	TIMER_CONTROL,  0x10002004
+    .equ	TIMER_START_LO, 0x10002008
+    .equ    TIMER_START_HI, 0x1000200C
+
+    .equ    TIMER_TIME, 0x5F5E10 # 0.125s in a 50 MHz clock
+
 #-----------------------------------------------------------------------------
 # Define two branch instructions in specific locations at the start of memory
 #-----------------------------------------------------------------------------
@@ -146,6 +154,44 @@ ps_end:
     addi    sp, sp, 12
     ret
 	
+
+LEDscanner:
+    subi    sp, sp, 24
+    stw     ra, 0(sp)
+	stw 	r2, 4(sp)
+    stw     r3, 8(sp)         # Restore r3
+    stw     r4, 12(sp)         # Restore r3
+    stw     r5, 16(sp)         # Restore r3
+    stw     r6, 20(sp)         # Restore r3
+
+    movia r2, LEDS
+    movia r3, 1000000000
+    ldwio r4, 0(r2)
+    bge r4, r3, if_big
+    andi r5, r4, 0x3
+    andi r4, r4, 0x3FC
+
+if_small:
+    slli r6, r4, 1
+    xor r4, r4, r4
+    xor r4, r4, r6
+    br if_end
+if_big:
+    movia r4, 100
+if_end:
+
+    or r4, r4, r5
+    stwio r4, 0(r2)
+
+    ldw     ra, 0(sp)
+	ldw 	r2, 4(sp)
+    ldw     r3, 8(sp)         # Restore r3
+    ldw     r4, 12(sp)         # Restore r3
+    ldw     r5, 16(sp)         # Restore r3
+    ldw     r6, 20(sp)         # Restore r3
+    addi    sp, sp, 24
+
+    ret
 #-----------------------------------------------------------------------------
 # This subroutine should encompass preparation of I/O registers as well as
 # special processor registers for recognition and processing of interrupt
@@ -165,10 +211,26 @@ Init:				# make it *modular* -- save/restore registers
     # (b) initialize I/O interface
     movia   r2, BUTTON_MASK   # base address of button PIO
     movia   r3, 0x2           # mask for button 1
-    stwio     r3, 0(r2)         # write to Interrupt Mask register
+    stwio   r3, 0(r2)         # write to Interrupt Mask register
 
-    # (c) enable interrupt in ienable
-    movia   r2, 0x2           # bit for IRQ line of buttons (check system.h or BSP)
+    movia   r2, TIMER_START_LO
+    stwio   r0, 0(r2)         # initialize timer start value (low)
+    movia   r2, TIMER_START_HI
+    movia   r3, TIMER_TIME
+    stwio   r3, 0(r2)         # initialize timer start value (high)
+
+    movia   r2, TIMER_CONTROL
+    ldwio   r3, 0(r2)         # read current control reg. value
+    xori    r3, r3 ,0x7       # start timer, continuous mode, enable IRQ
+    stwio   r3, 0(r2)         # write back new control reg. value
+
+    # set an LED pattern to show program is running
+    movia   r2, LEDS
+    movia   r3, 0x4           # initial pattern
+    stwio   r3, 0(r2)
+
+    # (c) enable interrupts in ienable
+    movia   r2, 0x3           # bit for IRQ line of buttons and timer (check system.h or BSP)
     wrctl   ienable, r2
 
     # (d) enable global interrupt in status
@@ -216,11 +278,26 @@ isr:
 #     and     r3, r2, r3                # r4 ← r2 & mask
 #     beq     r3, r0, check_BUTTON      # if zero, no I/O IRQ
 
+check_TIMER:
+    # --- check for timer interrupt ---
+    movia   r3, 0x1
+    and     r3, r2, r3             
+    beq     r3, r0, check_BUTTON      # if zero, no timer IRQ
+
+handle_TIMER:
+    # handle timer interrupt here
+    movia   r3, TIMER_STATUS
+    ldwio   r4, 0(r3)               # read status register
+    xori    r4, r4, 0x1             # clear the timer interrupt bit
+    stwio   r4, 0(r3)               # write back to clear it
+
+    call LEDscanner
+    
 check_BUTTON:
     # --- check for button interrupt ---
-    movia   r3, 0x2
-    and     r3, r2, r3             
-    beq     r3, r0, check_END      # if zero, no button IRQ
+    movia   r4, 0x2
+    and     r4, r2, r4            
+    beq     r4, r0, check_END      # if zero, no button IRQ
 
 handle_BUTTON:
     # handle button interrupt here
@@ -234,8 +311,8 @@ handle_BUTTON:
     xori    r3, r3, 1               # keep it within 8 bits
     stwio   r3, 0(r4)               # write back to LEDs
 
-
 check_END:
+
     ldw     ra, 0(sp)
 	ldw 	r2, 4(sp)
     ldw     r3, 8(sp)         # Restore r3
@@ -257,6 +334,7 @@ check_END:
 
 	.org	0x1000		# start should be fine for most small programs
 COUNT: .word
-TEXT: .asciz "ELEC 371 Lab 2 by Ethan Divine Sebastian\n"
+TEXT: .asciz "ELEC 371 Lab 2 by Ethan Divine Sebastien\n"
 
 	.end
+
