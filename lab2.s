@@ -44,8 +44,8 @@
     .equ	TIMER_START_LO, 0x10002008
     .equ    TIMER_START_HI, 0x1000200C
 
-    .equ    TIMER_TIME, 0x5F5E10 # 0.125s in a 50 MHz clock
-
+    .equ    TIMER_TIME_HI, 0x005F # 0.125s in a 50 MHz clock
+    .equ    TIMER_TIME_LO, 0x5E10 # 0.125s in a 50 MHz clock
 #-----------------------------------------------------------------------------
 # Define two branch instructions in specific locations at the start of memory
 #-----------------------------------------------------------------------------
@@ -165,7 +165,7 @@ LEDscanner:
     stw     r6, 20(sp)         # Restore r3
 
     movia r2, LEDS
-    movia r3, 1000000000
+    movia r3, 0x200
     ldwio r4, 0(r2)
     bge r4, r3, if_big
     andi r5, r4, 0x3
@@ -177,7 +177,7 @@ if_small:
     xor r4, r4, r6
     br if_end
 if_big:
-    movia r4, 100
+    movia r4, 0x4
 if_end:
 
     or r4, r4, r5
@@ -213,11 +213,13 @@ Init:				# make it *modular* -- save/restore registers
     movia   r3, 0x2           # mask for button 1
     stwio   r3, 0(r2)         # write to Interrupt Mask register
 
-    movia   r2, TIMER_START_LO
-    stwio   r0, 0(r2)         # initialize timer start value (low)
     movia   r2, TIMER_START_HI
-    movia   r3, TIMER_TIME
+    movia   r3, TIMER_TIME_HI
     stwio   r3, 0(r2)         # initialize timer start value (high)
+
+    movia   r2, TIMER_START_LO
+    movia   r3, TIMER_TIME_LO
+    stwio   r3, 0(r2) 
 
     movia   r2, TIMER_CONTROL
     ldwio   r3, 0(r2)         # read current control reg. value
