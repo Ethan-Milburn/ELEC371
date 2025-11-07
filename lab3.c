@@ -163,9 +163,9 @@
 /* define a bit pattern reflecting the position of the timeout (TO) bit
    in the timer status register */
 #define TIMER_TO_BIT 0x1
-#define TIMER1_TO_BIT 0x2000
-#define TIMER2_TO_BIT 0x4000
-#define TIMER3_TO_BIT 0x8000
+#define TIMER1_TO_BIT 0x4000
+#define TIMER2_TO_BIT 0x8000
+#define TIMER3_TO_BIT 0x10000
 #define JTAG_UART_TO_BIT 0x100
 #endif /* _TIMER_H_ */
 
