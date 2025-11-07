@@ -152,14 +152,6 @@
 
 #define TIMER3_SNAP_HI	((volatile unsigned int *) 0x10004054)
 
-
-#define BUTTONS_TO_BIT 0x2
-
-#define BUTTONS ((volatile unsigned int *)0x10000050)
-#define BUTTONS_MASK ((volatile unsigned int *)0x10000058)
-#define BUTTONS_EDGE ((volatile unsigned int *)0x1000005C)
-
-
 /* define a bit pattern reflecting the position of the timeout (TO) bit
    in the timer status register */
 #define TIMER_TO_BIT 0x1
@@ -168,6 +160,9 @@
 #define TIMER3_TO_BIT 0x8000
 #define JTAG_UART_TO_BIT 0x100
 #endif /* _TIMER_H_ */
+
+
+
 
 /*-----------------------------------------------------------------*/
 
@@ -182,19 +177,26 @@
 
 #endif /* _LEDS_H_ */
 
+
+
+
+
+
 /*-----------------------------------------------------------------*/
 /*             start of application-specific code                  */
 /*-----------------------------------------------------------------*/
 
 /* place additional #define macros here */
 
-// 0.2s timer interval at 50 MHz clock
-#define TIMER1_CYCLES 10000000
-// 0.25s timer interval at 50 MHz clock
-#define TIMER2_CYCLES 12500000 
 // 0.5s timer interval at 50 MHz clock
-#define TIMER3_CYCLES 25000000
 
+#define TIMER2_CYCLES 12500000 
+
+#define BUTTONS_TO_BIT 0x2
+
+#define BUTTONS ((volatile unsigned int *)0x10000050)
+#define BUTTONS_MASK ((volatile unsigned int *)0x10000058)
+#define BUTTONS_EDGE ((volatile unsigned int *)0x1000005C)
 
 #define HEX ((volatile unsigned int *)0x10000020)
 
@@ -202,10 +204,11 @@
 #define HEX_MIDDLE_PATTERN ((volatile unsigned int)0x40404040)
 #define HEX_LOWER_PATTERN ((volatile unsigned int)0x08080808)
 
-#define JTAG_UART_DATA ((volatile unsigned int *) 0x10001000)
+#define JTAG_UART_BASE = ((volatile unsigned int *)0x10001000);
 /* define global program variables here */
 
 /* Define global variable so the linker can resolve JTAG_UART_BASE */
+
 
 unsigned int hexup = 1;
 
@@ -213,42 +216,19 @@ void interrupt_handler(void)
 {
 	unsigned int ipending;
 
+
 	/* read current value in ipending register */
 
    ipending = NIOS2_READ_IPENDING();
 
 	/* do one or more checks for different sources using ipending value */
    /* remember to clear interrupt sources */
-    if (ipending & (TIMER3_TO_BIT))
-    {
-        /* Clear interrupt sources */
-        *TIMER3_STATUS &= 0x1;
 
-        unsigned int pound = '#';
-        unsigned int colon = ':';
-        unsigned int backspace = '\b';
- 
-        if (*JTAG_UART_DATA & pound)
-        {
-            *JTAG_UART_DATA = backspace;
-            *JTAG_UART_DATA = colon;
-        }
-        else if ( *JTAG_UART_DATA == colon)
-        {
-            *JTAG_UART_DATA = backspace;
-            *JTAG_UART_DATA = pound;
-        }
-        else
-        {
-            *JTAG_UART_DATA = pound;
-        }
-
-   }
-   // Check timer2
-   if( ipending & (TIMER2_TO_BIT) )
+   // Check timer
+   if( ipending & (TIMER_TO_BIT) )
    {
       
-      *TIMER2_STATUS &= 0x1;
+      *TIMER_STATUS &= 0x1;
       if (*HEX == HEX_UPPER_PATTERN)
       {
         hexup = 0;
@@ -279,20 +259,11 @@ void Init (void)
 
 	/* set up each hardware interface */
 
-   *TIMER1_CONTROL = 0x8;
-   *TIMER1_START_LO = TIMER1_CYCLES & 0xFFFFFFFF;
-   *TIMER1_START_HI = (TIMER1_CYCLES >> 16) & 0xFFFFFFFF;
-   *TIMER1_CONTROL = 0x7;
-
-   *TIMER2_CONTROL = 0x8;
-   *TIMER2_START_LO = TIMER2_CYCLES & 0xFFFFFFFF;
-   *TIMER2_START_HI = (TIMER2_CYCLES >> 16) & 0xFFFFFFFF;
-   *TIMER2_CONTROL = 0x7;
-
-   *TIMER3_CONTROL = 0x8;
-   *TIMER3_START_LO = TIMER3_CYCLES & 0xFFFFFFFF;
-   *TIMER3_START_HI = (TIMER3_CYCLES >> 16) & 0xFFFFFFFF;
-   *TIMER3_CONTROL = 0x7;
+   // set up timer for periodic interrupts
+   *TIMER_CONTROL = 0x8;
+   *TIMER_START_LO = TIMER2_CYCLES & 0xFFFFFFFF;
+   *TIMER_START_HI = (TIMER2_CYCLES >> 16) & 0xFFFFFFFF;
+   *TIMER_CONTROL = 0x7;
 
 	/* set up ienable */
 
