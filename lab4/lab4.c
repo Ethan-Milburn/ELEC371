@@ -1,6 +1,5 @@
 #include "nios2_control.h"
-#include "leds.h"
-#include "chario.h"
+
 /* place additional #define macros here */
 
 #define TIMER3_STATUS	((volatile unsigned int *) 0x10004040)
@@ -37,10 +36,18 @@
 // 0.25s timer interval at 50 MHz clock
 #define TIMER3_CYCLES 12500000
 
+#define COMPANION_IRQ 0x1000
+
+#define SWITCHES ((volatile unsigned int *)0x10000040)
+#define HEX ((volatile unsigned int *)0x10000020)
+
+#define HEX_DASH_PATTERN ((volatile unsigned int)0x40404040)
+#define HEX_O_PATTERN ((volatile unsigned int)0x1F1F1F1F)
 /* define global program variables here */
 
-int timer_3_flag;
-int timer_1_flag;
+volatile int timer_3_flag;
+volatile int timer_1_flag;
+unsigned int raw_ADC;
 /* place additional functions here */
 
 
@@ -78,16 +85,16 @@ void Init (void)
    	*TIMER3_START_HI = (TIMER3_CYCLES >> 16) & 0xFFFFFFFF;
    	*TIMER3_CONTROL = 0x7;
 
+	InitADC(2,2);
+
 	/* set up ienable */
 
-   	NIOS2_WRITE_IENABLE(TIMER1_TO_BIT | TIMER3_TO_BIT);  /* enable timer interrupt */
+   	NIOS2_WRITE_IENABLE(COMPANION_IRQ || TIMER1_IRQ | TIMER3_IRQ);  /* enable timer interrupt */
 
 	/* enable global recognition of interrupts in procr. status reg. */
 
    NIOS2_WRITE_STATUS( 0x1 );  /* enable interrupts globally */
-	/* set up ienable */
 
-	/* enable global recognition of interrupts in procr. status reg. */
 }
 
 /*-----------------------------------------------------------------*/
@@ -110,11 +117,45 @@ int main (void)
 	{
 		if(timer_3_flag)
 		{
+			unsigned int number = ADConnvert();
+			number &= 0x000000FF;
 
+			PrintChar("\b\b");
+			PrintHex(number & 0x000000F0);
+			PrintHex(number & 0x0000000F);
+
+			timer_3_flag = 0;
 		}
 		if(timer_1_flag)
 		{
-			
+			volatile unsigned int hex_pattern_mask = 0;
+			if (*SWITCHES & 0x1)
+			{
+				hex_pattern_mask += 0xFF;
+			}
+			if (*SWITCHES & 0x2)
+			{
+				hex_pattern_mask += 0xFF00;
+			}
+			if (*SWITCHES & 0x4)
+			{
+				hex_pattern_mask += 0xFF0000;
+			}
+			if (*SWITCHES & 0x8)
+			{
+				hex_pattern_mask += 0xFF000000;
+			}
+
+			if(show_dash)
+			{
+
+				*HEX = HEX_DASH_PATTERN & hex_pattern_mask;
+			}
+			else
+			{
+				*HEX = HEX_O_PATTERN & hex_pattern_mask;
+			}
+			timer_1_flag = 0;
 		}
 		/* fill in body of infinite loop */
 	}
