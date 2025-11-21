@@ -203,6 +203,9 @@
 #define HEX_LOWER_PATTERN ((volatile unsigned int)0x08080808)
 
 #define JTAG_UART_DATA ((volatile unsigned int *) 0x10001000)
+
+#define SWITCHES ((volatile unsigned int *)0x10000040)
+
 /* define global program variables here */
 
 /* Define global variable so the linker can resolve JTAG_UART_BASE */
